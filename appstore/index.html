@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>App Store</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			margin: 0;
+			padding: 16px;
+			background: #f5f5f5;
+			color: #222;
+		}
+
+		h1 {
+			margin: 0 0 12px;
+			font-size: 1.25rem;
+		}
+
+		#status {
+			margin-bottom: 12px;
+			font-size: 0.95rem;
+			color: #444;
+		}
+
+		#apps {
+			display: grid;
+			grid-template-columns: 1fr;
+			gap: 10px;
+			padding: 0;
+			margin: 0;
+			list-style: none;
+		}
+
+		.app-card {
+			background: #fff;
+			border: 1px solid #ddd;
+			border-radius: 8px;
+			padding: 12px;
+		}
+
+		.app-title {
+			margin: 0 0 6px;
+			font-size: 1rem;
+		}
+
+		.app-meta {
+			margin: 0;
+			font-size: 0.85rem;
+			color: #666;
+		}
+
+		.app-description {
+			margin: 8px 0 0;
+			font-size: 0.9rem;
+		}
+
+		.app-action {
+			margin-top: 10px;
+			padding: 6px 10px;
+			font-size: 0.85rem;
+		}
+
+		.app-state {
+			margin-top: 8px;
+			font-size: 0.8rem;
+			color: #666;
+		}
+	</style>
+</head>
+<body>
+	<h1>App Store</h1>
+	<div id="status">Loading repos...</div>
+	<ul id="apps"></ul>
+	<script src="https://cdn.jsdelivr.net/npm/json5@2/dist/index.min.js"></script>
+	<script src="./appInstaller.js"></script>
+
+	<script>
+		const REPO_LIST_URL = 'http://localhost:3000/';
+		const MANIFEST_FILE = 'manifest.json';
+		const APP_MANIFEST_FILE = 'app.manifest.json5';
+
+		const statusEl = document.getElementById('status');
+		const appsEl = document.getElementById('apps');
+
+		async function createAppCard(manifest, repoDisplayUrl, repoFetchBaseUrl, appPath, appFiles) {
+			const item = document.createElement('li');
+			item.className = 'app-card';
+
+			const title = document.createElement('h2');
+			title.className = 'app-title';
+			title.textContent = manifest.name || manifest.slug || 'Unnamed App';
+
+			const meta = document.createElement('p');
+			meta.className = 'app-meta';
+			meta.textContent = `${manifest.slug || 'no-slug'} • ${repoDisplayUrl}`;
+
+			const description = document.createElement('p');
+			description.className = 'app-description';
+			description.textContent = manifest.description || 'No description.';
+
+			const actionButton = document.createElement('button');
+			actionButton.className = 'app-action';
+
+			const stateText = document.createElement('p');
+			stateText.className = 'app-state';
+			stateText.textContent = 'Checking install state...';
+
+			try {
+				const installed = await window.AppInstaller.isInstalled(repoFetchBaseUrl, appPath, manifest, appFiles);
+				actionButton.textContent = installed ? 'Uninstall' : 'Install';
+				stateText.textContent = installed ? 'Installed' : 'Not installed';
+			} catch (error) {
+				actionButton.textContent = 'Install';
+				stateText.textContent = 'Install state unavailable';
+			}
+
+			async function refreshInstallState() {
+				try {
+					const installed = await window.AppInstaller.isInstalled(repoFetchBaseUrl, appPath, manifest, appFiles);
+					actionButton.textContent = installed ? 'Uninstall' : 'Install';
+					stateText.textContent = installed ? 'Installed' : 'Not installed';
+				} catch (error) {
+					actionButton.textContent = 'Install';
+					stateText.textContent = 'Install state unavailable';
+				}
+			}
+
+			actionButton.addEventListener('click', async () => {
+				actionButton.disabled = true;
+
+				try {
+					const installed = await window.AppInstaller.isInstalled(repoFetchBaseUrl, appPath, manifest, appFiles);
+
+					if (installed) {
+						stateText.textContent = 'Uninstalling...';
+						await window.AppInstaller.uninstallApp(manifest, repoFetchBaseUrl, appPath, appFiles);
+					} else {
+						stateText.textContent = 'Installing...';
+						await window.AppInstaller.installApp(manifest, repoFetchBaseUrl, appPath, appFiles);
+					}
+
+					await refreshInstallState();
+				} catch (error) {
+					console.error(error);
+					stateText.textContent = 'Operation failed';
+				} finally {
+					actionButton.disabled = false;
+				}
+			});
+
+			item.appendChild(title);
+			item.appendChild(meta);
+			item.appendChild(description);
+			item.appendChild(actionButton);
+			item.appendChild(stateText);
+
+			return item;
+		}
+
+		function normalizeRepoUrl(url) {
+			return String(url || '').replace(/\/+$/, '');
+		}
+
+		function resolveRepoFetchBaseUrl(repoUrl) {
+			const normalized = normalizeRepoUrl(repoUrl);
+
+			try {
+				const parsed = new URL(normalized);
+				if (parsed.hostname.toLowerCase() !== 'github.com') {
+					return normalized;
+				}
+
+				const segments = parsed.pathname
+					.split('/')
+					.filter(Boolean);
+
+				if (segments.length < 2) {
+					return normalized;
+				}
+
+				const owner = segments[0];
+				const repoName = segments[1].replace(/\.git$/i, '');
+				return `https://raw.githubusercontent.com/${owner}/${repoName}/refs/heads/main`;
+			} catch (error) {
+				return normalized;
+			}
+		}
+
+		function normalizeAppPath(pathValue) {
+			return String(pathValue || '').replace(/^\/+|\/+$/g, '');
+		}
+
+		function parseAppManifest(text) {
+			if (window.JSON5 && typeof window.JSON5.parse === 'function') {
+				return window.JSON5.parse(text);
+			}
+
+			return JSON.parse(text);
+		}
+
+		async function loadApps() {
+			try {
+				const repoResponse = await fetch(REPO_LIST_URL);
+
+				if (!repoResponse.ok) {
+					throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
+				}
+
+				const repos = await repoResponse.json();
+
+				if (!Array.isArray(repos)) {
+					throw new Error('Repo list response is not an array');
+				}
+
+				let foundApps = 0;
+				let failedRepos = 0;
+				let failedApps = 0;
+
+				for (const repo of repos) {
+					const repoDisplayUrl = normalizeRepoUrl(repo);
+					const repoFetchBaseUrl = resolveRepoFetchBaseUrl(repoDisplayUrl);
+					const manifestUrl = `${repoFetchBaseUrl}/${MANIFEST_FILE}`;
+
+					try {
+						const manifestResponse = await fetch(manifestUrl);
+
+						if (!manifestResponse.ok) {
+							failedRepos += 1;
+							continue;
+						}
+
+						const repoManifest = await manifestResponse.json();
+
+						if (!repoManifest || typeof repoManifest !== 'object' || Array.isArray(repoManifest)) {
+							failedRepos += 1;
+							continue;
+						}
+
+						for (const [appPathRaw, appFiles] of Object.entries(repoManifest)) {
+							if (!Array.isArray(appFiles) || !appFiles.includes(APP_MANIFEST_FILE)) {
+								continue;
+							}
+
+							const appPath = normalizeAppPath(appPathRaw);
+							const appManifestUrl = `${repoFetchBaseUrl}/${appPath}/${APP_MANIFEST_FILE}`;
+
+							try {
+								const appManifestResponse = await fetch(appManifestUrl);
+
+								if (!appManifestResponse.ok) {
+									failedApps += 1;
+									continue;
+								}
+
+								const appManifestText = await appManifestResponse.text();
+								const appManifest = parseAppManifest(appManifestText);
+
+								const appCard = await createAppCard(appManifest, repoDisplayUrl, repoFetchBaseUrl, appPath, appFiles);
+								appsEl.appendChild(appCard);
+								foundApps += 1;
+							} catch (error) {
+								failedApps += 1;
+							}
+						}
+					} catch (error) {
+						failedRepos += 1;
+					}
+				}
+
+				statusEl.textContent = `Loaded ${foundApps} app(s) from ${repos.length} repo(s). Repo failures: ${failedRepos}. App failures: ${failedApps}.`;
+
+				if (foundApps === 0) {
+					const empty = document.createElement('li');
+					empty.className = 'app-card';
+					empty.textContent = 'No apps found.';
+					appsEl.appendChild(empty);
+				}
+			} catch (error) {
+				statusEl.textContent = `Error: ${error.message}`;
+			}
+		}
+
+		loadApps();
+	</script>
+</body>
+</html>
