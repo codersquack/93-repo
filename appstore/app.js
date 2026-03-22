@@ -10,15 +10,26 @@ const REPO_LIST_URL = 'https://repo93.xd4y.zip/';
 const MANIFEST_FILE = 'manifest.json';
 const APP_MANIFEST_FILE = 'app.manifest.json5';
 
-async function createAppCard(manifest, repoDisplayUrl, repoFetchBaseUrl, appPath, appFiles) {
-    let icon = "/42/assets/icons/32x32/apps/generic.png"
-    if (manifest.icons !== null || manifest.icons !== undefined){
+async function fetchIcon(manifest, base, path, files) {
+    // let icon = "/42/assets/icons/32x32/apps/generic.png"
+    if (manifest.icons !== null && manifest.icons !== undefined){
         console.log(manifest.icons)
         let obj = manifest.icons.find((obj)=>{return obj.size == 32})
         if (obj) {
-            icon = repoFetchBaseUrl+"/"+appPath+"/"+obj.url // TODO: test
+            if (obj.url.startsWith("/")) return obj.url
+            else return base+"/"+path+"/"+obj.url // TODO: test
         }
     }
+    if (files.includes("icon-32.png")) return base+"/"+path+"/icon-32.png"
+    if (files.includes("icons/icon-32.png")) return base+"/"+path+"/icons/icon-32.png"
+
+    return "/42/assets/icons/32x32/apps/generic.png"
+
+    // if (files.)
+}
+
+async function createAppCard(manifest, repoDisplayUrl, repoFetchBaseUrl, appPath, appFiles) {
+    let icon = await fetchIcon(manifest, repoFetchBaseUrl, appPath, appFiles)
 
     sys42.render({
         "tag": "fieldset",
@@ -92,24 +103,25 @@ async function loadApps() {
     appsContainer.innerHTML = ""
     statusEl.textContent = "loading..."
     try {
-        const repoResponse = await fetch(REPO_LIST_URL);
+        // const repoResponse = await fetch(REPO_LIST_URL);
 
-        if (!repoResponse.ok) {
-            throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
-        }
+        // if (!repoResponse.ok) {
+        //     throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
+        // }
 
-        let defaultRepos = await repoResponse.json();
+        // let defaultRepos = await repoResponse.json();
 
-        if (!Array.isArray(defaultRepos)) {
-            throw new Error('Repo list response is not an array');
-        }
+        // if (!Array.isArray(defaultRepos)) {
+        //     throw new Error('Repo list response is not an array');
+        // }
 
         const extraRepos = await fs.readJSON("/c/programs/appstore/repos.json")
         if (extraRepos == null) {
             throw new Error('Couldn\'t read new repos');
         }
 
-        const repos = defaultRepos.concat(extraRepos)
+        // const repos = defaultRepos.concat(extraRepos)
+        const repos = extraRepos
 
         let foundApps = 0;
         let failedRepos = 0;
@@ -268,11 +280,11 @@ async function settings() {
 
     // TODO: picto and grow
     let dialog = await sys42.dialog(configure({label: "Repos", width: 350, height: 160, content: plan}))
-    console.log(dialog)
+    // console.log(dialog)
 }
 
 export async function renderApp(app) {
-    console.log(app)
+    // console.log(app)
     return {
         tag: "main",
         content: [
