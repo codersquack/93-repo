@@ -103,17 +103,17 @@ async function loadApps() {
     appsContainer.innerHTML = ""
     statusEl.textContent = "loading..."
     try {
-        // const repoResponse = await fetch(REPO_LIST_URL);
+        const repoResponse = await fetch(REPO_LIST_URL);
 
-        // if (!repoResponse.ok) {
-        //     throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
-        // }
+        if (!repoResponse.ok) {
+            throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
+        }
 
-        // let defaultRepos = await repoResponse.json();
+        let defaultRepos = await repoResponse.json();
 
-        // if (!Array.isArray(defaultRepos)) {
-        //     throw new Error('Repo list response is not an array');
-        // }
+        if (!Array.isArray(defaultRepos)) {
+            throw new Error('Repo list response is not an array');
+        }
 
         const extraRepos = await fs.readJSON("/c/programs/appstore/repos.json")
         if (extraRepos == null) {
