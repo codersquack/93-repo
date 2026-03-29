@@ -1,4 +1,5 @@
-import {fs} from "/42/api/fs.js"
+import { fs } from "/42/api/fs.js"
+import { confirm } from "/42/ui/layout/dialog.js"
 
 function cleanSegment(value) {
     return String(value || '')
@@ -283,11 +284,30 @@ export async function installApp(appManifest, repoUrl, appPath, appFiles) {
         await writeFileToFs(fs, targetPath, content);
     }
 
+    // if (!("desktop" in appManifest)) {
+
+    // }
+    // let createDesktop = "desktop" in appManifest ? appManifest.desktop : await confirm("Would you like to create a desktop shortcut?", {agree: "Yes", decline: "No"}) // could be not correct
+    let createDesktop = await confirm("Would you like to create a desktop shortcut?", {agree: "Yes", decline: "No"})
+    if(createDesktop) createDesktopIcon(appManifest.name, appManifest.command)
+
     return installBasePath;
+}
+
+async function createDesktopIcon(name, command) {
+    // await fs.write("")
+    let users = await fs.readJSON5("/users.json5")
+    await fs.writeText(`/c/users/${users.activeUser}/desktop/${command}.desktop`, `[Desktop Entry]\nName="${name}"\nExec="${command}"`)
 }
 
 export async function uninstallApp(appManifest, repoUrl, appPath, appFiles) {
     const installBasePath = getInstallPath(repoUrl, appPath, appManifest);
+
+    let users = await fs.readJSON5("/users.json5")
+    console.log(`/c/users/${users.activeUser}/desktop/${appManifest.command}.desktop`)
+    if (await fs.isFile(`/c/users/${users.activeUser}/desktop/${appManifest.command}.desktop`)) {
+        await fs.delete(`/c/users/${users.activeUser}/desktop/${appManifest.command}.desktop`)
+    }
 
     if (typeof fs.deleteDir === 'function') {
         await fs.deleteDir(installBasePath);

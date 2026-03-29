@@ -1,7 +1,8 @@
-import { getInstallPath, isInstalled, installApp, uninstallApp } from "./appInstaller.js"
+import { getInstallPath, isInstalled, installApp, uninstallApp } from "./appInstaller.js?t=61"
 import { JSON5 } from "/42/formats/data/JSON5.js";
 import { fs } from "/42/api/fs.js"
-import { configure } from "/42/api/configure.js"
+import { dialog, alert } from "/42/ui/layout/dialog.js"
+import { render } from "/42/api/gui/render.js"
 
 let statusEl;
 let appsContainer;
@@ -31,7 +32,7 @@ async function fetchIcon(manifest, base, path, files) {
 async function createAppCard(manifest, repoDisplayUrl, repoFetchBaseUrl, appPath, appFiles) {
     let icon = await fetchIcon(manifest, repoFetchBaseUrl, appPath, appFiles)
 
-    sys42.render({
+    render({
         "tag": "fieldset",
         content: [
             {
@@ -73,7 +74,7 @@ async function createAppCard(manifest, repoDisplayUrl, repoFetchBaseUrl, appPath
                             await installApp(manifest, repoFetchBaseUrl, appPath, appFiles);
                         }
                     } catch (err) {
-                        sys42.alert(`Something went wrong! ${err}`)
+                        alert(`Something went wrong! ${err}`)
                     } finally {
                         if (installed) e.target.textContent = "Install" // installed value is opposite of truth
                         else e.target.textContent = "Uninstall"
@@ -103,17 +104,17 @@ async function loadApps() {
     appsContainer.innerHTML = ""
     statusEl.textContent = "loading..."
     try {
-        const repoResponse = await fetch(REPO_LIST_URL);
+        // const repoResponse = await fetch(REPO_LIST_URL);
 
-        if (!repoResponse.ok) {
-            throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
-        }
+        // if (!repoResponse.ok) {
+        //     throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
+        // }
 
-        let defaultRepos = await repoResponse.json();
+        // let defaultRepos = await repoResponse.json();
 
-        if (!Array.isArray(defaultRepos)) {
-            throw new Error('Repo list response is not an array');
-        }
+        // if (!Array.isArray(defaultRepos)) {
+        //     throw new Error('Repo list response is not an array');
+        // }
 
         const extraRepos = await fs.readJSON("/c/programs/appstore/repos.json")
         if (extraRepos == null) {
@@ -170,7 +171,7 @@ async function loadApps() {
                         await createAppCard(appManifest, repoDisplayUrl, repoFetchBaseUrl, appPath, appFiles);
                         foundApps += 1;
                     } catch (error) {
-                        sys42.alert(error)
+                        alert(error)
                         failedApps += 1;
                     }
                 }
@@ -183,7 +184,7 @@ async function loadApps() {
         statusEl.textContent = `Loaded ${foundApps} app(s) from ${repos.length} repo(s). Repo failures: ${failedRepos}. App failures: ${failedApps}.`;
 
         if (foundApps === 0) {
-            sys42.render({
+            render({
                 tag: "fieldset",
                 content: "No apps found"
             }, appsContainer)
@@ -254,7 +255,7 @@ async function settings() {
                         tag: "button",
                         content: {tag: "ui-picto", value: "plus"},
                         action: ()=>{
-                            sys42.render(createRow(""), repoListEl)
+                            render(createRow(""), repoListEl)
                         }
                     }
                 ]
@@ -272,14 +273,14 @@ async function settings() {
                     }
 
                     await fs.writeJSON("/c/programs/appstore/repos.json", repos)
-                    await sys42.alert("Saved!")
+                    await alert("Saved!")
                 }
             }
         ]
     }
 
     // TODO: picto and grow
-    let dialog = await sys42.dialog(configure({label: "Repos", width: 350, height: 160, content: plan}))
+    let dialogel = await dialog({label: "Repos", width: 350, height: 160, content: plan})
     // console.log(dialog)
 }
 
