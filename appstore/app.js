@@ -14,7 +14,7 @@ const APP_MANIFEST_FILE = 'app.manifest.json5';
 async function fetchIcon(manifest, base, path, files) {
     // let icon = "/42/assets/icons/32x32/apps/generic.png"
     if (manifest.icons !== null && manifest.icons !== undefined){
-        console.log(manifest.icons)
+        // console.log(manifest.icons)
         let obj = manifest.icons.find((obj)=>{return obj.size == 32})
         if (obj) {
             if (obj.url.startsWith("/")) return obj.url
@@ -104,25 +104,25 @@ async function loadApps() {
     appsContainer.innerHTML = ""
     statusEl.textContent = "loading..."
     try {
-        // const repoResponse = await fetch(REPO_LIST_URL);
+        const repoResponse = await fetch(REPO_LIST_URL);
 
-        // if (!repoResponse.ok) {
-        //     throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
-        // }
+        if (!repoResponse.ok) {
+            throw new Error(`Failed to fetch repo list (${repoResponse.status})`);
+        }
 
-        // let defaultRepos = await repoResponse.json();
+        let defaultRepos = await repoResponse.json();
 
-        // if (!Array.isArray(defaultRepos)) {
-        //     throw new Error('Repo list response is not an array');
-        // }
+        if (!Array.isArray(defaultRepos)) {
+            throw new Error('Repo list response is not an array');
+        }
 
         const extraRepos = await fs.readJSON("/c/programs/appstore/repos.json")
         if (extraRepos == null) {
             throw new Error('Couldn\'t read new repos');
         }
 
-        // const repos = defaultRepos.concat(extraRepos)
-        const repos = extraRepos
+        const repos = defaultRepos.concat(extraRepos)
+        // const repos = extraRepos
 
         let foundApps = 0;
         let failedRepos = 0;
