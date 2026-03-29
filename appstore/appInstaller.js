@@ -304,7 +304,6 @@ export async function uninstallApp(appManifest, repoUrl, appPath, appFiles) {
     const installBasePath = getInstallPath(repoUrl, appPath, appManifest);
 
     let users = await fs.readJSON5("/users.json5")
-    console.log(`/c/users/${users.activeUser}/desktop/${appManifest.command}.desktop`)
     if (await fs.isFile(`/c/users/${users.activeUser}/desktop/${appManifest.command}.desktop`)) {
         await fs.delete(`/c/users/${users.activeUser}/desktop/${appManifest.command}.desktop`)
     }
